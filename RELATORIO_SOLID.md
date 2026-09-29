@@ -8,10 +8,22 @@ Este relatório apresenta o **mapeamento exato de arquivos, números de linhas, 
 
 ---
 
-### CASO 1: Chamada Direta do Gemini e do Sistema Operacional dentro da Interface Gráfica
+### CASO 1: Desmantelamento da "God Class" (AssistenteVozGUI) e Chamada Direta do Gemini/SO na Interface
 - **Arquivo Legado**: [`AssistenteVoz/app_gui.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/app_gui.py)
+- **Anti-Pattern Identificado**: **God Class (ou God Object)** — Uma única classe acumulando mais de 730 linhas e 8 responsabilidades distintas.
 - **Princípios Violados**: **SRP** (Responsabilidade Única) e **DIP** (Inversão de Dependência)
-- **Novo Arquivo Refatorado**: [`AssistenteVoz_SOLID/ui/app_gui.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/ui/app_gui.py) e [`AssistenteVoz_SOLID/services/controller.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/controller.py)
+- **Novos Arquivos Refatorados**: [`AssistenteVoz_SOLID/ui/app_gui.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/ui/app_gui.py) e [`AssistenteVoz_SOLID/services/controller.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/controller.py)
+
+#### Por Que Era uma "God Class"?
+A classe `AssistenteVozGUI` centralizava praticamente todas as operações do sistema em um único lugar:
+1. **Apresentação Visual**: Telas, layout, botões, caixas de texto e paletas Tkinter.
+2. **Animação**: Loop de desenho das ondas sonoras no Canvas.
+3. **Temporização**: Lógica do cronômetro de 12 segundos e cancelamento via `after()`.
+4. **Concorrência**: Gerenciamento direto de `threading.Thread` e flags de estado (`processando`, `cancelado`).
+5. **Captura de Hardware**: Instanciação física do microfone (`self.gravador = GravadorAudio()`).
+6. **Comunicação de Rede**: Disparo de chamadas HTTP REST para a nuvem da Google Gemini.
+7. **Execução no SO**: Invocação de processos `subprocess` e comandos do terminal CMD.
+8. **Manipulação de Arquivos do SO**: Abertura direta do arquivo de log via `os.startfile` e Notepad.
 
 #### Linhas e Código no Arquivo Legado (`AssistenteVoz/app_gui.py`)
 1. **Linhas 9 e 10**:
@@ -234,10 +246,7 @@ Este relatório apresenta o **mapeamento exato de arquivos, números de linhas, 
 
 | Arquivo Original | Linhas Originais com Problema | O que foi arrumado | Novos Componentes / Arquivos de Destino |
 | :--- | :--- | :--- | :--- |
-| `app_gui.py` | **Linhas 9-10** | Importação direta de infraestrutura na UI | `ui/app_gui.py` (Linhas 15-17): Importa apenas `VoiceAssistantController` |
-| `app_gui.py` | **Linha 48** | Instanciação de microfone fixo na UI | `ui/app_gui.py` (Linhas 24-28): Injeção de dependência |
-| `app_gui.py` | **Linhas 548-562** | `processar_audio()` e `executar_acao_estruturada()` na UI | `ui/app_gui.py` (Linhas 545-555): `self.controller.finalizar_e_processar_voz()` |
-| `app_gui.py` | **Linhas 624-636** | `processar_texto()` e `executar_acao_estruturada()` na UI | `ui/app_gui.py` (Linhas 585-595): `self.controller.processar_comando_texto()` |
+| `app_gui.py` | **Linhas 9-10, 48, 548-562, 624-636** | **God Class** (>730 linhas) misturando UI, threads, rede e SO | `ui/app_gui.py`: UI pura desacoplada delegando para `VoiceAssistantController` |
 | `gemini_service.py`| **Linha 13** | Dependência de `registrar_transcricao` | `services/gemini_service.py`: Depende apenas de `core/interfaces.py` |
 | `gemini_service.py`| **Linhas 88-143** | Classe `GravadorAudio` acumulada no serviço de IA | `services/audio_recorder.py` (Linhas 11-75): `SoundDeviceRecorder` |
 | `gemini_service.py`| **Linhas 200-204** | Efeito colateral de gravação em disco | `services/gemini_service.py` (Linhas 97-150): Inferência pura |
