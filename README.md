@@ -1,4 +1,4 @@
-# 🎙️ Assistente de Voz para Windows — Arquitetura SOLID
+# Assistente de Voz para Windows — Arquitetura SOLID
 
 Microsolução modular em Python que captura comandos de voz do usuário, interpreta intenções em linguagem natural através do modelo **Gemini Flash**, persiste histórico e executa ações automatizadas no Windows.
 
@@ -6,7 +6,7 @@ Esta versão foi completamente arquitetada e refatorada aplicando os **cinco pri
 
 ---
 
-## 🏛️ Arquitetura Orientada a SOLID
+## Arquitetura Orientada a SOLID
 
 A aplicação divide-se em camadas claras e com responsabilidades estritamente delimitadas:
 
@@ -70,7 +70,7 @@ flowchart TD
 
 ---
 
-## 🚀 Como Executar
+## Como Executar
 
 ### 1. Pré-requisitos e Instalação
 
@@ -111,7 +111,7 @@ python main.py --segundos 5
 
 ---
 
-## 🧪 Testes Automatizados
+## Testes Automatizados
 
 A suíte de testes cobre tanto os testes de regressão originais quanto os testes estruturais dos princípios SOLID:
 
@@ -128,6 +128,6 @@ Testes inclusos:
 
 ---
 
-## 📂 Comparativo Detalhado
+## Comparativo Detalhado
 
 Para ver a comparação linha a linha entre a versão anterior e a versão refatorada, consulte o arquivo [COMPARATIVO_SOLID.md](COMPARATIVO_SOLID.md).
