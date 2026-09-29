@@ -1,0 +1,9 @@
+sounddevice>=0.4.6
+numpy>=1.24.0
+scipy>=1.10.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Ferramentas de desenvolvimento e testes
+pytest>=7.4.0
+pytest-mock>=3.11.0

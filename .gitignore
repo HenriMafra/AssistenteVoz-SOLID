@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Ambientes virtuais e variáveis secretas
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# Testes e Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Binários pesados e mídias
+*.exe
+*.spec
+*.mp4
+
+# Sistema Operacional
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
