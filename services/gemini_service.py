@@ -1,7 +1,28 @@
 """Serviço de Inteligência Artificial com Google Gemini (SRP e DIP).
 
-Responsável exclusivamente por comunicar-se com a API do Gemini via REST,
-formatar prompts estruturados e converter respostas em IntentResult.
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  No projeto original (gemini_service.py):
+  1. Linha 13: `from actions import registrar_transcricao` (acoplamento impróprio).
+  2. Linhas 200-204 e 239-243: As funções `processar_audio` e `processar_texto`
+     gravavam silenciosamente em disco no arquivo `transcricao.md` a cada inferência.
+  3. A lista de modelos `modelos = [modelo, "gemini-3.6-flash"]` estava travada na função.
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  1. Violação de Responsabilidade Única (SRP): Uma função de inferência de IA não
+     deve fazer I/O em disco. A persistência de log é uma preocupação de auditoria,
+     não da chamada de rede do modelo de linguagem.
+  2. Efeitos colaterais ocultos: Chamar `processar_audio()` alterava o estado do disco
+     do usuário mesmo em testes unitários.
+  3. Violação de DIP e ISP: O serviço de IA dependia de um módulo local de sistema
+     operacional (`actions.py`), criando uma dependência circular/cruzada conceitual.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  A classe `GeminiAIService` é uma implementação atômica da interface `IAIService`.
+  Ela é pura: recebe áudio/texto e retorna `IntentResult`. Não toca no microfone nem
+  escreve no disco. A persistência é delegada à camada de orquestração (`VoiceAssistantController`).
+================================================================================
 """
 import base64
 import json

@@ -1,7 +1,27 @@
 """Despachante de Ações implementando o Open/Closed Principle (OCP).
 
-Permite estender o sistema com novas ações sem nunca precisar modificar
-o despachante ou as ações existentes.
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  No projeto original (actions.py linhas 95-155), a função `executar_acao_estruturada`
+  possuía um bloco condicional monolítico:
+  `if acao == "abrir_navegador": ... elif acao == "executar_cmd": ... elif acao == "abrir_aplicativo": ...`
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  1. Violação Crítica do Princípio Aberto/Fechado (OCP): Toda vez que o sistema precisava
+     de uma nova ação (ex: ajustar volume, tirar screenshot, silenciar mic), era
+     OBRIGATÓRIO abrir o arquivo `actions.py` e modificar diretamente a função central.
+  2. Alto risco de regressão: Modificar código funcional e testado para adicionar novos
+     recursos gera risco constante de introduzir bugs em funcionalidades antigas.
+  3. Acoplamento de regras: A função acumulava lógicas específicas de cada comando
+     (inclusive parsing de texto da transcrição na linha 129).
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  Implementa o padrão Command / Strategy com a classe `ActionDispatcher`.
+  O despachante agora está FECHADO para modificação e ABERTO para extensão.
+  Novos comandos são adicionados simplesmente criando uma nova classe herdando de
+  `BaseActionHandler` e chamando `dispatcher.registrar_handler(NovoHandler())`.
+================================================================================
 """
 from typing import Any
 from core.interfaces import IActionHandler
@@ -12,7 +32,7 @@ from .app import AppLauncherHandler
 
 
 class ActionDispatcher:
-    """Roteia e executa intenções baseando-se em handlers registrados (Strategy / Command)."""
+    """Roteia e executa intenções baseando-se em handlers registrados (Strategy / Command - OCP)."""
 
     def __init__(self, handlers: list[IActionHandler] | None = None):
         self._handlers: dict[str, IActionHandler] = {}

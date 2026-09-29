@@ -1,4 +1,20 @@
-"""Handler responsável exclusivamente por iniciar programas e executáveis no Windows."""
+"""Handler responsável exclusivamente por iniciar programas e executáveis no Windows.
+
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  O dicionário estático `APP_MAP` e a função `abrir_aplicativo` ficavam globais
+  dentro do monólito `actions.py`.
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  Violação do Princípio da Responsabilidade Única (SRP) e OCP: Não havia como injetar
+  mapeamentos alternativos para testes ou customizações sem alterar o arquivo global.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  Cria a classe `AppLauncherHandler` com construtor que aceita `app_map` customizado,
+  desacoplando o registro de executáveis e isolando o uso do utilitário `start` do Windows.
+================================================================================
+"""
 import subprocess
 from typing import Any
 from core.models import ActionResult, IntentResult

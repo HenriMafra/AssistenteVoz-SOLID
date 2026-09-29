@@ -1,7 +1,35 @@
 """Interface Gráfica Tkinter desacoplada e aderente aos princípios SOLID (DIP e SRP).
 
-A GUI atua puramente como camada de apresentação visual, delegando toda a orquestração
-e regras de negócio ao VoiceAssistantController.
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  No projeto original (AssistenteVoz/app_gui.py), esta classe era uma clássica
+  "God Class" (ou God Object) com mais de 730 linhas. Ela acumulava 8 responsabilidades:
+  1. Criação de componentes visuais Tkinter;
+  2. Desenho procedural de ondas no Canvas;
+  3. Temporização e cronômetro de gravação;
+  4. Gerenciamento manual de threads com `threading.Thread`;
+  5. Instanciação física do microfone (`self.gravador = GravadorAudio(samplerate=16000)`);
+  6. Chamada direta de rede da API do Google Gemini (`resultado = processar_audio(wav_bytes)`);
+  7. Invocação direta de comandos e processos locais no SO (`status = executar_acao_estruturada()`);
+  8. Lançador de arquivos externos do SO (`os.startfile` e Notepad).
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  1. Violação Crítica de Responsabilidade Única (SRP): A interface gráfica tinha múltiplos
+     motivos para mudar. Se o endpoint do Gemini mudasse, a GUI quebrava. Se a captura de
+     áudio mudasse, a GUI quebrava. Se as ações no Windows mudassem, a GUI quebrava.
+  2. Violação Crítica de Inversão de Dependência (DIP): O módulo de mais alto nível
+     (a camada de apresentação visual) estava fortemente acoplado a bibliotecas de
+     baixo nível (`requests`, `subprocess`, `sounddevice`).
+  3. Impossibilidade de testes unitários isolados: Qualquer teste na GUI precisava
+     mockar a placa de som e os servidores da Google, tornando os testes lentos e frágeis.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  A classe AssistenteVozGUI foi convertida em uma "View" pura (padrão MVC/MVP).
+  Ela não sabe o que é Gemini, não sabe como o som é gravado e não sabe como o CMD
+  roda comandos. Toda a lógica de negócio é delegada ao `VoiceAssistantController`
+  recebido por Injeção de Dependências no `__init__`.
+================================================================================
 """
 import os
 import random
@@ -24,7 +52,8 @@ class AssistenteVozGUI:
         self.root = root
         self.root.title("Assistente de Voz IA — Gemini Flash (SOLID)")
 
-        # Injeção de dependência do controlador
+        # Injeção de dependência do controlador (DIP)
+        # Substitui a instanciação acoplada antiga `self.gravador = GravadorAudio(...)`
         self.controller = controller or VoiceAssistantController()
         # Atalho de compatibilidade com testes unitários legados
         self.gravador = self.controller.recorder
@@ -544,6 +573,18 @@ class AssistenteVozGUI:
         threading.Thread(target=self._worker_processar_audio, daemon=True).start()
 
     def _worker_processar_audio(self):
+        """Thread trabalhadora para processamento de voz.
+        
+        NO CÓDIGO LEGADO (app_gui.py linhas 548-562):
+        Aqui a GUI chamava `resultado = processar_audio(wav_bytes)` e em seguida
+        `status = executar_acao_estruturada(resultado)`.
+        Isso era CRÍTICO porque a interface gráfica executava requisições de rede
+        e processos do Windows diretamente dentro de si mesma.
+        
+        AGORA:
+        A interface apenas avisa o Controller de aplicação e recebe o resultado
+        pronto e formatado de forma limpa e assíncrona.
+        """
         try:
             intent, status = self.controller.finalizar_e_processar_voz()
             if self.cancelado:
@@ -611,6 +652,14 @@ class AssistenteVozGUI:
         threading.Thread(target=self._worker_processar_texto, args=(comando,), daemon=True).start()
 
     def _worker_processar_texto(self, comando: str):
+        """Thread trabalhadora para processamento de texto.
+        
+        NO CÓDIGO LEGADO (app_gui.py linhas 624-636):
+        A interface gráfica invocava diretamente `processar_texto` e `executar_acao_estruturada`.
+        
+        AGORA:
+        Delega a interpretação e execução ao VoiceAssistantController.
+        """
         try:
             intent, status = self.controller.processar_comando_texto(comando)
             if self.cancelado:

@@ -1,7 +1,25 @@
 """Controlador da Aplicação (Caso de Uso) aplicando Dependency Inversion Principle (DIP).
 
-Orquestra a captura de áudio, chamada de IA, despacho de ações e registro de histórico,
-dependendo unicamente de abstrações (interfaces) e desacoplando completamente a GUI e CLI.
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  Não existia camada de aplicação/controlador. A interface gráfica (app_gui.py)
+  e o terminal (main.py) duplicavam manualmente todo o pipeline:
+  capturar som -> chamar processar_audio() -> chamar executar_acao_estruturada() -> salvar log.
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  1. Violação de Inversão de Dependência (DIP): As interfaces de usuário dependiam
+     diretamente dos detalhes técnicos de baixo nível.
+  2. Duplicação de Regras de Negócio (DRY): Qualquer alteração na lógica (ex: adicionar
+     uma confirmação do usuário ou trocar o provedor de IA) precisava ser replicada
+     em múltiplos arquivos.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  Cria a classe `VoiceAssistantController`, que atua como orquestrador central de
+  casos de uso. Ela recebe exclusivamente abstrações no seu construtor
+  (`IAudioRecorder`, `IAIService`, `IHistoryLogger`), permitindo plugar mocks em testes
+  ou trocar serviços inteiros em tempo de execução sem alterar a interface de usuário.
+================================================================================
 """
 from typing import Any
 from core.interfaces import IAudioRecorder, IAIService, IHistoryLogger
@@ -13,7 +31,7 @@ from .history_logger import MarkdownHistoryLogger
 
 
 class VoiceAssistantController:
-    """Orquestrador central de casos de uso do assistente de voz."""
+    """Orquestrador central de casos de uso do assistente de voz (DIP)."""
 
     def __init__(
         self,

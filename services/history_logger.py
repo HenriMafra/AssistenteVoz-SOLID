@@ -1,4 +1,24 @@
-"""Serviço dedicado à persistência e auditoria de histórico de comandos (SRP)."""
+"""Serviço dedicado à persistência e auditoria de histórico de comandos (SRP).
+
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  A função `registrar_transcricao()` estava declarada dentro de `actions.py` (linhas 75-93)
+  e era chamada de dentro de `gemini_service.py` (linhas 200 e 240).
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  1. Violação de Responsabilidade Única (SRP): Misturava operações de I/O em arquivo
+     Markdown com automação do sistema operacional (abrir janelas e CMD).
+  2. Dependência imprópria e acoplamento: O serviço de IA na nuvem dependia do arquivo
+     de automação do SO local apenas para poder salvar um log em disco.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  Isola a responsabilidade de formatação e escrita em disco na classe
+  `MarkdownHistoryLogger`, implementando o contrato `IHistoryLogger`.
+  Se amanhã o histórico precisar ser gravado em SQLite, JSON ou na nuvem,
+  nenhuma linha de `actions` ou de `gemini_service` precisa ser tocada.
+================================================================================
+"""
 from datetime import datetime
 from pathlib import Path
 from typing import Any

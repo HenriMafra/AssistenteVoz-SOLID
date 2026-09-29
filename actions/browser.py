@@ -1,4 +1,20 @@
-"""Handler responsável exclusivamente por abrir URLs ou realizar pesquisas no navegador."""
+"""Handler responsável exclusivamente por abrir URLs ou realizar pesquisas no navegador.
+
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  A função `abrir_navegador` estava misturada dentro do mesmo arquivo `actions.py`
+  que continha execução de CMD, abertura de apps e gravação de histórico em Markdown.
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  Violação do Princípio da Responsabilidade Única (SRP). Mudanças na política de busca,
+  mecanismo de encode de URL ou novos navegadores forçavam a alteração do arquivo
+  central do sistema.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  Isola a navegação na classe `BrowserActionHandler` implementando `IActionHandler`.
+================================================================================
+"""
 import urllib.parse
 import webbrowser
 from typing import Any

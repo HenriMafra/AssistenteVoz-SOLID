@@ -1,4 +1,25 @@
-"""Handler responsável exclusivamente pela execução de comandos no Windows Prompt (CMD)."""
+"""Handler responsável exclusivamente pela execução de comandos no Windows Prompt (CMD).
+
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  Em actions.py (linhas 53-65 e 111-140):
+  1. `executar_cmd` retornava dois tipos incompatíveis (`CompletedProcess` ou `Popen`).
+  2. Em `executar_acao_estruturada`, o código fazia parsing da fala do usuário
+     buscando strings como `"cmd"`, `"prompt"` ou `"terminal"` para abrir duas vezes
+     o comando (uma oculta para capturar output e outra visível).
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  1. Violação do Princípio da Substituição de Liskov (LSP): Retorno heterogêneo
+     forçava checagens defensivas com `getattr(res_bg, "stdout")`.
+  2. Violação de Responsabilidade Única (SRP): A camada de execução no SO não deve
+     fazer inferência semântica de linguagem natural.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  Isola a execução no `CmdActionHandler`, garantindo que o retorno seja sempre um
+  `ActionResult` previsível e uniforme.
+================================================================================
+"""
 import subprocess
 from typing import Any
 from core.models import ActionResult, IntentResult

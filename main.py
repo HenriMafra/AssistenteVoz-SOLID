@@ -1,7 +1,22 @@
 """Ponto de entrada para Execução via Linha de Comando (CLI).
 
-Permite interagir pelo terminal ou passar comandos pontuais via flags,
-utilizando o VoiceAssistantController com injeção de dependências.
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  No projeto original (main.py linhas 58-98), o script de terminal duplicava
+  manualmente todo o pipeline de execução: gravar áudio -> chamar API de IA ->
+  chamar SO -> imprimir na tela.
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  1. Violação de Inversão de Dependência (DIP): O CLI dependia diretamente de funções
+     concretas proceduralmente acopladas.
+  2. Duplicação de Regras (DRY): Qualquer alteração de fluxo exigia modificar o main.py
+     e o app_gui.py ao mesmo tempo.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  O terminal agora orquestra suas opções através do `VoiceAssistantController`,
+  mantendo 100% de paridade arquitetural com a GUI e permitindo injeção de dependência.
+================================================================================
 """
 import argparse
 import sys

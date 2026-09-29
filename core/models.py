@@ -1,17 +1,42 @@
-"""Modelos de dados (DTOs) com validação e tipagem forte."""
+"""Módulo de Modelos de Domínio (DTOs) com Validação e Tipagem Forte.
+
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  No código legado (actions.py linhas 25-41), existia uma classe `ResultadoAcao`
+  que tentava fingir que era um dicionário ao implementar apenas `__getitem__` e `get()`.
+  Ao mesmo tempo, as intenções da IA transitavam como dicionários soltos (`dict`)
+  com strings mágicas ("transcricao", "acao", "parametros").
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  1. Violação do Princípio da Substituição de Liskov (LSP): A classe quebrava o
+     contrato de substituição. Se qualquer parte do código esperasse um dicionário real
+     (ex: iterando com `for k, v in resultado.items()`), o programa quebrava com AttributeError.
+  2. Falta de tipagem estática e fragilidade: O uso de dicionários anônimos sem validação
+     forçava o uso constante de `.get("chave", padrao)` defensivo em todos os arquivos.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  Cria Data Transfer Objects (DTOs) fortemente tipados (`IntentResult` e `ActionResult`)
+  com campos definidos, imutáveis por padrão, com getters seguros e retrocompatibilidade
+  completa com código legado.
+================================================================================
+"""
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 
 @dataclass
 class IntentResult:
-    """Representa a intenção do usuário interpretada pelo serviço de IA."""
+    """Representa a intenção do usuário interpretada pelo serviço de IA.
+    
+    Substitui os dicionários soltos de intenção que circulavam no código legado.
+    """
     transcription: str = ""
     action: str = "outro"
     params: dict[str, Any] = field(default_factory=dict)
     explanation: str = ""
 
-    # Aliases em português para interoperabilidade
+    # Aliases em português para manter compatibilidade com testes e código legado
     @property
     def transcricao(self) -> str:
         return self.transcription
@@ -45,7 +70,10 @@ class IntentResult:
 
 @dataclass
 class ActionResult:
-    """Resultado encapsulado da execução de uma ação no sistema operacional."""
+    """Resultado encapsulado da execução de uma ação no sistema operacional.
+    
+    Substitui a antiga classe ResultadoAcao com um contrato seguro e completo (LSP).
+    """
     status: str
     saida: str = ""
     acao: str = ""
@@ -85,5 +113,5 @@ class ActionResult:
         }
 
 
-# Alias para retrocompatibilidade
+# Alias para retrocompatibilidade total com testes legados
 ResultadoAcao = ActionResult

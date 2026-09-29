@@ -1,4 +1,25 @@
-"""Serviço responsável exclusivamente pela captura e bufferização de áudio do microfone (SRP)."""
+"""Serviço responsável exclusivamente pela captura e bufferização de áudio do microfone (SRP).
+
+================================================================================
+DIAGNÓSTICO ARQUITETURAL SOLID:
+- O QUE O CÓDIGO LEGADO FAZIA:
+  No projeto original (gemini_service.py linhas 88-164), toda a manipulação física
+  de hardware de som (`sounddevice.InputStream`), matrizes NumPy e conversão para WAV
+  estava empilhada no mesmo arquivo que realizava requisições REST para a nuvem da Google.
+
+- POR QUE ESSA PRÁTICA ERA CRÍTICA (FALHA DE DESIGN):
+  1. Violação do Princípio da Responsabilidade Única (SRP): Misturar drivers de áudio
+     locais com clientes de API remota dava àquele módulo motivos completamente
+     distintos para mudar (ex: um upgrade de biblioteca de som podia quebrar a API de IA).
+  2. Impossibilidade de reutilização e troca: Se o desenvolvedor quisesse usar PyAudio,
+     captura via WebRTC ou áudio de streaming, precisaria reescrever o cliente de IA.
+
+- O QUE ESTE CÓDIGO FAZ AGORA E COMO ARRUMA:
+  Isola a captura física de som na classe `SoundDeviceRecorder`, implementando o
+  contrato estrito `IAudioRecorder`. O serviço de IA não tem mais nenhuma linha
+  de código sobre microfone ou hardware.
+================================================================================
+"""
 import io
 from typing import Any
 import numpy as np
@@ -8,7 +29,7 @@ from core.interfaces import IAudioRecorder
 
 
 class SoundDeviceRecorder(IAudioRecorder):
-    """Implementação concreta de captura de áudio com sounddevice e scipy."""
+    """Implementação concreta de captura de áudio com sounddevice e scipy (SRP)."""
 
     def __init__(self, samplerate: int = 16000):
         self.samplerate = samplerate
