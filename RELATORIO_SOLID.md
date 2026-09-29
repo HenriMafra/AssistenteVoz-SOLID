@@ -1,177 +1,254 @@
-# Relatório de Transformação Arquitetural SOLID: O Que Mudou e Por Quê
+# Relatório Cirúrgico de Refatoração SOLID: Mapeamento de Linhas e Arquivos
 
-Este relatório documenta detalhadamente as mudanças realizadas na refatoração do **Assistente de Voz para Windows**, comparando o código legado (`AssistenteVoz`) com a nova arquitetura em camadas (`AssistenteVoz_SOLID`), fundamentando tecnicamente cada decisão com base no artigo do [FreeCodeCamp: Os princípios SOLID da Programação Orientada a Objetos explicados em bom português](https://www.freecodecamp.org/portuguese/news/os-principios-solid-da-programacao-orientada-a-objetos-explicados-em-bom-portugues/).
-
----
-
-## 1. Sumário Executivo das Mudanças
-
-A aplicação original, embora funcional, foi desenvolvida em formato procedural com alto acoplamento entre camadas conceituais completamente diferentes (hardware de microfone, comunicação HTTP, parsing de texto, chamadas de sistema operacional, gravação de arquivos e interface visual gráfica).
-
-Para transformar a aplicação em um sistema resiliente, testável e extensível, a arquitetura foi reorganizada em **4 camadas limpas**:
-1. **Domínio (`core/`)**: Modelos de dados imutáveis e interfaces contratuais estritas.
-2. **Manipuladores de Ação (`actions/`)**: Executores locais independentes regidos pelo padrão *Command / Strategy*.
-3. **Serviços de Infraestrutura e Aplicação (`services/`)**: Implementações de áudio, IA, log e o orquestrador de casos de uso (*Controller*).
-4. **Apresentação (`ui/` e `main.py`)**: Interfaces visuais e CLI desacopladas que não conhecem detalhes de baixo nível.
+Este relatório apresenta o **mapeamento exato de arquivos, números de linhas, códigos Antes vs. Depois e justificativas arquiteturais** da transformação realizada no projeto, fundamentado no artigo do [FreeCodeCamp: Os princípios SOLID da Programação Orientada a Objetos explicados em bom português](https://www.freecodecamp.org/portuguese/news/os-principios-solid-da-programacao-orientada-a-objetos-explicados-em-bom-portugues/).
 
 ---
 
-## 2. Detalhamento por Princípio SOLID: O Que Mudou e Por Quê
-
-### 2.1. [S] — Single Responsibility Principle (Princípio da Responsabilidade Única)
-
-> *"Uma classe deve ter um, e apenas um, motivo para mudar."*
-
-#### O Que Estava Errado (O "Antes")
-- **[`gemini_service.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/gemini_service.py)**: Acumulava 7 responsabilidades distintas: carregar `.env`, obter credenciais, gerenciar prompt de sistema, tratar parsing regex/JSON, capturar áudio com hardware de microfone (`sounddevice`), enviar requisição REST HTTP (`requests`) e persistir histórico no disco chamando [`registrar_transcricao()`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/gemini_service.py#L200). Se a biblioteca de áudio mudasse ou o formato de log em disco mudasse, o serviço de IA precisava ser editado.
-- **[`actions.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/actions.py)**: Misturava automação do Windows (abrir navegador, CMD, apps) com persistência em disco em formato Markdown ([`registrar_transcricao`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/actions.py#L75)).
-- **[`app_gui.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/app_gui.py)**: Uma *God Class* de 738 linhas que continha lógica visual (Tkinter), animação procedural de ondas em Canvas, gerenciamento de threads em background, controle de gravação e chamada direta de endpoints remotos e processos locais.
-
-#### O Que Foi Alterado (O "Depois")
-- **Isolamento de Áudio**: Criado [`services/audio_recorder.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/audio_recorder.py) com a classe [`SoundDeviceRecorder`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/audio_recorder.py#L11). Cuida única e exclusivamente do buffer de áudio e conversão para WAV.
-- **Isolamento de IA**: [`services/gemini_service.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/gemini_service.py) agora contém apenas [`GeminiAIService`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/gemini_service.py#L97). Não grava em disco nem toca no microfone.
-- **Isolamento de Persistência**: Criado [`services/history_logger.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/history_logger.py) com a classe [`MarkdownHistoryLogger`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/history_logger.py#L32).
-- **Isolamento de Ações**: Cada ação no Windows foi separada em seu próprio arquivo:
-  - [`actions/browser.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/browser.py) -> [`BrowserActionHandler`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/browser.py#L23)
-  - [`actions/cmd.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/cmd.py) -> [`CmdActionHandler`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/cmd.py#L32)
-  - [`actions/app.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/app.py) -> [`AppLauncherHandler`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/app.py#L32)
-- **Desacoplamento da UI**: [`ui/app_gui.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/ui/app_gui.py) agora recebe um controlador injetado e apenas exibe informações visuais e repassa eventos de clique.
-
-#### Por Que Mudou?
-- **Isolamento de falhas**: Um erro na formatação do arquivo Markdown não interrompe mais a comunicação com a API de IA.
-- **Facilidade de manutenção**: Para alterar a lógica de captura de áudio (ex: trocar `sounddevice` por `pyaudio`), apenas um arquivo pequeno de 70 linhas é tocado, sem riscos de quebrar o cliente da API do Gemini ou a interface gráfica.
+## 1. Mapeamento Cirúrgico por Arquivo
 
 ---
 
-### 2.2. [O] — Open/Closed Principle (Princípio do Aberto/Fechado)
+### CASO 1: Chamada Direta do Gemini e do Sistema Operacional dentro da Interface Gráfica
+- **Arquivo Legado**: [`AssistenteVoz/app_gui.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/app_gui.py)
+- **Princípios Violados**: **SRP** (Responsabilidade Única) e **DIP** (Inversão de Dependência)
+- **Novo Arquivo Refatorado**: [`AssistenteVoz_SOLID/ui/app_gui.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/ui/app_gui.py) e [`AssistenteVoz_SOLID/services/controller.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/controller.py)
 
-> *"Entidades de software devem estar abertas para extensão, mas fechadas para modificação."*
+#### Linhas e Código no Arquivo Legado (`AssistenteVoz/app_gui.py`)
+1. **Linhas 9 e 10**:
+   ```python
+   # Importação direta de infraestrutura de baixo nível na camada de apresentação visual:
+   from actions import executar_acao_estruturada, abrir_aplicativo
+   from gemini_service import GravadorAudio, processar_audio, processar_texto, obter_api_token
+   ```
+2. **Linha 48**:
+   ```python
+   # Acoplamento rígido com hardware de áudio dentro do __init__ da janela Tkinter:
+   self.gravador = GravadorAudio(samplerate=16000)
+   ```
+3. **Linhas 548 a 562** (Worker de áudio):
+   ```python
+   def _worker_processar_audio(self):
+       try:
+           wav_bytes = self.gravador.parar()
+           if self.cancelado:
+               return
 
-#### O Que Estava Errado (O "Antes")
-No arquivo [`actions.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/actions.py#L95-L150), a execução de ações era feita através de um encadeamento rígido de `if-elif-else`:
-```python
-if acao == "abrir_navegador":
-    ...
-elif acao == "executar_cmd":
-    ...
-elif acao == "abrir_aplicativo":
-    ...
-```
-Para adicionar qualquer nova capacidade (ex: ajustar volume do som, desligar máquina, pausar música, tirar print da tela), era mandatório abrir `actions.py` e alterar o corpo da função `executar_acao_estruturada`. Cada alteração criava o risco iminente de regressão em ações pré-existentes.
+           # [VIOLAÇÃO CRÍTICA]: A UI disparando requisição HTTP para a nuvem do Google Gemini:
+           resultado = processar_audio(wav_bytes)
+           if self.cancelado:
+               return
 
-#### O Que Foi Alterado (O "Depois")
-Implementado o padrão de projeto **Command / Strategy** coordenado por um registro aberto em [`actions/dispatcher.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/dispatcher.py):
-- Foi criada a classe [`ActionDispatcher`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/dispatcher.py#L16).
-- O despachante mantém uma tabela interna de manipuladores registrados via método `registrar_handler(handler: IActionHandler)`.
-- O código do despachante está **fechado para modificação**.
-- Para adicionar uma nova ação, o desenvolvedor apenas cria uma nova classe (ex: `VolumeActionHandler(BaseActionHandler)`) e a registra no despachante:
-```python
-dispatcher.registrar_handler(VolumeActionHandler())
-```
+           # [VIOLAÇÃO CRÍTICA]: A UI executando comandos CMD e processos do Windows:
+           status = executar_acao_estruturada(resultado)
+           if self.cancelado:
+               return
 
-#### Por Que Mudou?
-- Elimina completamente o código espaguete de condicionais infinitas.
-- Permite criar plugins, atalhos customizados e novas funcionalidades de forma modular, sem risco de quebrar o que já está funcionando.
-- Comprovado no teste automatizado [`test_solid.py::test_ocp_adicionar_novo_handler_sem_modificar_dispatcher`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/test_solid.py#L32).
+           self.root.after(0, self._atualizar_sucesso, resultado, status)
+   ```
+4. **Linhas 624 a 636** (Worker de texto):
+   ```python
+   def _worker_processar_texto(self, comando: str):
+       try:
+           # [VIOLAÇÃO]: A UI chamando diretamente o modelo de linguagem:
+           resultado = processar_texto(comando)
+           if self.cancelado:
+               return
 
----
+           # [VIOLAÇÃO]: A UI executando comandos de terminal:
+           status = executar_acao_estruturada(resultado)
+           if self.cancelado:
+               return
 
-### 2.3. [L] — Liskov Substitution Principle (Princípio da Substituição de Liskov)
+           self.root.after(0, self._atualizar_sucesso, resultado, status)
+   ```
 
-> *"Objetos em um programa devem poder ser substituídos por instâncias de seus subtipos sem comprometer a integridade e o comportamento correto do programa."*
-
-#### O Que Estava Errado (O "Antes")
-- **`ResultadoAcao` em [`actions.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/actions.py#L25)**: A classe implementava apenas `__getitem__` e `get()`, simulando um dicionário. No entanto, ela não implementava o protocolo de `collections.abc.Mapping`. Se uma função consumidora tentasse iterar sobre as chaves (`keys()`, `items()`) ou verificasse se era um dicionário, o programa disparava um `AttributeError`.
-- **`executar_cmd` em [`actions.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/actions.py#L53)**: A assinatura retornava dois tipos incompatíveis (`CompletedProcess | Popen`) dependendo de uma flag booleana `interativo`. O chamador era obrigado a checar atributos dinamicamente com `getattr(res_bg, "stdout", "")` porque os dois objetos possuem contratos e comportamentos em tempo de execução totalmente distintos.
-
-#### O Que Foi Alterado (O "Depois")
-- Criado o modelo [`ActionResult`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/models.py#L46) (com alias para `ResultadoAcao`). Ele fornece um contrato estável, tipado e completo:
-  - Suporta acesso por atributos (`res.status`, `res.output`, `res.action`).
-  - Suporta acesso por indexação segura (`res["status"]`, `res["saida"]`).
-  - Fornece método explícito `to_dict()`.
-  - Todos os handlers de ação em `actions/` retornam obrigatoriamente a mesma estrutura `ActionResult`, garantindo previsibilidade.
-
-#### Por Que Mudou?
-- Elimina checagens defensivas `hasattr` e conversões improvisadas no meio do código.
-- Garante que qualquer manipulador de ação novo possa ser consumido pela UI ou CLI com garantia de que os mesmos métodos e propriedades estarão presentes.
-- Validado pelo teste [`test_solid.py::test_lsp_action_result_contrato_consistente`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/test_solid.py#L49).
-
----
-
-### 2.4. [I] — Interface Segregation Principle (Princípio da Segregação de Interfaces)
-
-> *"Muitas interfaces específicas de clientes são melhores do que uma interface de propósito geral. Clientes não devem ser forçados a depender de métodos que não utilizam."*
-
-#### O Que Estava Errado (O "Antes")
-- O projeto não possuía contratos nem interfaces formais. A comunicação ocorria via dicionários anônimos de tipo genérico `dict`:
-  `{"transcricao": ..., "acao": ..., "parametros": {...}, "explicacao": ...}`.
-- Cada consumidor era forçado a conhecer e desempacotar todas as chaves dinâmicas manualmente (`.get("transcricao")`, `.get("parametros", {})`), sem nenhum suporte de autocompletion ou checagem estática de tipos (MyPy / IDE).
-- Clientes que precisavam apenas gravar áudio eram forçados a importar o módulo inteiro que dependia de `requests` e do Google Generative Language.
-
-#### O Que Foi Alterado (O "Depois")
-Criado o arquivo [`core/interfaces.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/interfaces.py) com interfaces segregadas e de responsabilidade delimitada usando `typing.Protocol`:
-- [`IAudioRecorder`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/interfaces.py#L12): Contém apenas métodos de ciclo de vida do microfone (`iniciar`, `parar`, `cancelar`, `esta_gravando`).
-- [`IAIService`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/interfaces.py#L35): Contém apenas métodos de inferência (`processar_audio`, `processar_texto`).
-- [`IActionHandler`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/interfaces.py#L47): Contém apenas contrato de execução (`nome_acao`, `executar`).
-- [`IHistoryLogger`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/interfaces.py#L60): Contém apenas persistência (`registrar`).
-
-#### Por Que Mudou?
-- Nenhuma classe implementa ou depende de métodos que não precisa.
-- O gravador de áudio não precisa saber nada sobre HTTP ou LLMs; o serviço de IA não precisa saber nada sobre microfones físicos ou janelas Tkinter.
-
----
-
-### 2.5. [D] — Dependency Inversion Principle (Princípio da Inversão de Dependência)
-
-> *"Módulos de alto nível não devem depender de módulos de baixo nível. Ambos devem depender de abstrações. Abstrações não devem depender de detalhes. Detalhes devem depender de abstrações."*
-
-#### O Que Estava Errado (O "Antes")
-- Os módulos de alto nível ([`app_gui.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/app_gui.py) e [`main.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/main.py)) importavam e instanciavam diretamente módulos de baixo nível:
-  - `from gemini_service import GravadorAudio, processar_audio`
-  - `from actions import executar_acao_estruturada`
-- Consequência: Era impossível testar a interface gráfica sem usar patches complexos do `unittest.mock` para interceptar hardware de áudio e chamadas de rede.
-- Além disso, se o usuário quisesse trocar o modelo Gemini pelo Grok (conforme citado no [`specs.md`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/specs.md): *"Objetivo: USAR API DO GROK..."*), seria necessário reescrever a GUI, a CLI e o serviço.
-
-#### O Que Foi Alterado (O "Depois")
-- Criado o controlador de aplicação [`VoiceAssistantController`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/controller.py#L18) em [`services/controller.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/controller.py).
-- O controlador recebe **abstrações injetadas** no construtor:
-  ```python
-  class VoiceAssistantController:
-      def __init__(
-          self,
-          recorder: IAudioRecorder | None = None,
-          ai_service: IAIService | None = None,
-          dispatcher: ActionDispatcher | None = None,
-          logger: IHistoryLogger | None = None
-      ):
-          self.recorder = recorder or SoundDeviceRecorder()
-          self.ai_service = ai_service or GeminiAIService()
-          self.dispatcher = dispatcher or ActionDispatcher()
-          self.logger = logger or MarkdownHistoryLogger()
-  ```
-- A GUI ([`AssistenteVozGUI`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/ui/app_gui.py#L22)) e a CLI ([`main.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/main.py#L31)) agora dependem apenas do controlador ou de contratos abstratos.
-
-#### Por Que Mudou?
-- **Pluggability (Plug & Play)**: Criar uma implementação `GrokAIService` ou `OpenAIService` agora é trivial: basta implementar a interface `IAIService` e passá-la para o `VoiceAssistantController(ai_service=GrokAIService())`. A GUI funcionará imediatamente sem nenhuma alteração.
-- **Testes ultra-rápidos e seguros**: Conforme comprovado em [`test_solid.py::test_dip_controller_com_implementacoes_abstratas`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/test_solid.py#L97), o controlador pôde ser testado com implementações falsas em memória (`FakeRecorder`, `FakeAIService`, `FakeLogger`) em milissegundos, sem precisar tocar na placa de som ou na internet.
+#### Como Foi Arrumado (`AssistenteVoz_SOLID`)
+1. **No arquivo [`AssistenteVoz_SOLID/ui/app_gui.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/ui/app_gui.py)**:
+   - **Linhas 15 a 17**: As importações de `gemini_service` e `actions` foram **removidas**. A GUI importa apenas o modelo de dados e o orquestrador:
+     ```python
+     from core.models import ActionResult, IntentResult
+     from services.controller import VoiceAssistantController
+     ```
+   - **Linhas 24 a 28**: Injeção de dependência no `__init__`:
+     ```python
+     def __init__(self, root: tk.Tk, controller: VoiceAssistantController | None = None):
+         self.root = root
+         self.controller = controller or VoiceAssistantController()
+     ```
+   - **Linhas 545 a 555**: O worker de áudio delega tudo em uma única linha de intenção ao `Controller`:
+     ```python
+     def _worker_processar_audio(self):
+         try:
+             # A GUI não sabe quem grava, quem envia HTTP ou quem executa no SO:
+             intent, status = self.controller.finalizar_e_processar_voz()
+             if self.cancelado:
+                 return
+             self.root.after(0, self._atualizar_sucesso, intent, status)
+     ```
+   - **Linhas 585 a 595**: O worker de texto delega igualmente:
+     ```python
+     def _worker_processar_texto(self, comando: str):
+         try:
+             intent, status = self.controller.processar_comando_texto(comando)
+             if self.cancelado:
+                 return
+             self.root.after(0, self._atualizar_sucesso, intent, status)
+     ```
+2. **No arquivo [`AssistenteVoz_SOLID/services/controller.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/controller.py)** (Linhas 42 a 55):
+   A regra de negócio e orquestração fica centralizada na camada de aplicação através de interfaces abstratas (`IAudioRecorder`, `IAIService`, `IActionHandler`, `IHistoryLogger`).
 
 ---
 
-## 3. Matriz Arquitetural de Rastreabilidade
+### CASO 2: Monólito de IA com Hardware, Regex, HTTP e Gravação em Disco no Mesmo Módulo
+- **Arquivo Legado**: [`AssistenteVoz/gemini_service.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/gemini_service.py)
+- **Princípios Violados**: **SRP** (Responsabilidade Única), **ISP** (Segregação de Interfaces) e **DIP** (Inversão de Dependência)
+- **Novos Arquivos Refatorados**:
+  - [`AssistenteVoz_SOLID/services/audio_recorder.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/audio_recorder.py)
+  - [`AssistenteVoz_SOLID/services/gemini_service.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/gemini_service.py)
+  - [`AssistenteVoz_SOLID/services/history_logger.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/history_logger.py)
 
-| Arquivo Original | Problema Principal | Novos Componentes / Arquivos | Princípios Aplicados |
+#### Linhas e Código no Arquivo Legado (`AssistenteVoz/gemini_service.py`)
+1. **Linha 13**:
+   ```python
+   # [VIOLAÇÃO SRP/DIP]: O cliente de IA importando persistência do módulo de ações locais:
+   from actions import registrar_transcricao
+   ```
+2. **Linhas 88 a 143** (`class GravadorAudio`):
+   ```python
+   # [VIOLAÇÃO SRP]: Toda a lógica de microfone físico, buffers NumPy, sounddevice e conversão WAV
+   # estava implementada DENTRO do arquivo do cliente de IA Gemini:
+   class GravadorAudio:
+       def __init__(self, samplerate: int = 16000): ...
+       def _callback(self, indata, frames, time_info, status): ...
+       def iniciar(self) -> None: ...
+       def parar(self) -> bytes: ...
+   ```
+3. **Linhas 146 a 164**:
+   Funções procedurais de captura de microfone via console (`gravar_audio_interativo` e `gravar_audio_segundos`) misturadas com código de rede.
+4. **Linhas 200 a 204** (Dentro de `processar_audio`) e **Linhas 239 a 243** (Dentro de `processar_texto`):
+   ```python
+   # [VIOLAÇÃO SRP]: Efeito colateral oculto de escrita em disco a cada inferência:
+   registrar_transcricao(
+       texto=resultado.get("transcricao", ""),
+       acao=resultado.get("acao", "outro"),
+       detalhes=resultado.get("parametros", {})
+   )
+   ```
+
+#### Como Foi Arrumado (`AssistenteVoz_SOLID`)
+1. **Captura de Áudio Isolada**:
+   - Movida para [`services/audio_recorder.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/audio_recorder.py) (Linhas 11 a 75).
+   - Implementa o contrato [`IAudioRecorder`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/interfaces.py#L12) definido em [`core/interfaces.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/interfaces.py).
+   - O serviço de IA agora não precisa mais importar `sounddevice`, `scipy` ou `numpy`.
+2. **Cliente de IA Puro (Sem Efeito Colateral de Disco)**:
+   - Em [`services/gemini_service.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/gemini_service.py) (Linhas 97 a 195), a classe [`GeminiAIService`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/gemini_service.py#L97) implementa [`IAIService`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/interfaces.py#L35).
+   - Ela recebe dados, consulta a API e devolve um [`IntentResult`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/models.py#L9). **Não escreve nada no disco**.
+3. **Persistência Isolada**:
+   - Em [`services/history_logger.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/history_logger.py) (Linhas 32 a 55), [`MarkdownHistoryLogger`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/history_logger.py#L32) implementa [`IHistoryLogger`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/interfaces.py#L60).
+   - O orquestrador (`VoiceAssistantController`) decide quando e onde gravar, sem acoplar a IA à persistência.
+
+---
+
+### CASO 3: Despachante Monolítico com `if-elif-else` e Parsing Léxico no Executor
+- **Arquivo Legado**: [`AssistenteVoz/actions.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/actions.py)
+- **Princípios Violados**: **OCP** (Aberto/Fechado), **SRP** (Responsabilidade Única) e **LSP** (Substituição de Liskov)
+- **Novos Arquivos Refatorados**:
+  - [`AssistenteVoz_SOLID/actions/base.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/base.py)
+  - [`AssistenteVoz_SOLID/actions/browser.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/browser.py)
+  - [`AssistenteVoz_SOLID/actions/cmd.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/cmd.py)
+  - [`AssistenteVoz_SOLID/actions/app.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/app.py)
+  - [`AssistenteVoz_SOLID/actions/dispatcher.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/dispatcher.py)
+
+#### Linhas e Código no Arquivo Legado (`AssistenteVoz/actions.py`)
+1. **Linhas 25 a 41** (`class ResultadoAcao`):
+   ```python
+   # [VIOLAÇÃO LSP]: Falso mapeamento. Tentava fingir que era dicionário com __getitem__,
+   # mas quebrava com iteradores, keys() ou verificação isinstance(obj, Mapping):
+   class ResultadoAcao:
+       def __init__(self, status: str, saida: str = "", acao: str = "", comando: str = ""): ...
+       def get(self, chave: str, padrao=None): ...
+       def __getitem__(self, chave: str): ...
+   ```
+2. **Linhas 53 a 65** (`executar_cmd`):
+   ```python
+   # [VIOLAÇÃO LSP]: Retornava tipos incompatíveis com base em parâmetro booleano:
+   def executar_cmd(comando: str, interativo: bool = True) -> subprocess.CompletedProcess | subprocess.Popen:
+   ```
+3. **Linhas 75 a 93** (`registrar_transcricao`):
+   ```python
+   # [VIOLAÇÃO SRP]: Gravação de arquivo Markdown misturada com execução de SO:
+   def registrar_transcricao(texto: str, acao: str, detalhes: dict, arquivo: str = "transcricao.md") -> None:
+   ```
+4. **Linhas 95 a 155** (`executar_acao_estruturada`):
+   ```python
+   # [VIOLAÇÃO OCP]: Estrutura condicional rígida. Impossível adicionar nova ação sem modificar este arquivo:
+   def executar_acao_estruturada(dados: dict) -> ResultadoAcao:
+       acao = dados.get("acao", "outro")
+       params = dados.get("parametros", {})
+       transcricao = dados.get("transcricao", "").lower()
+
+       if acao == "abrir_navegador":
+           ...
+       elif acao == "executar_cmd":
+           # [VIOLAÇÃO SRP]: Análise léxica de palavras em português na camada de execução:
+           if "cmd" in transcricao or "prompt" in transcricao or "terminal" in transcricao or "abrir" in transcricao:
+               executar_cmd(comando, interativo=True)
+           ...
+       elif acao == "abrir_aplicativo":
+           ...
+   ```
+
+#### Como Foi Arrumado (`AssistenteVoz_SOLID`)
+1. **Substituição de Liskov Garantida**:
+   - Em [`core/models.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/models.py) (Linhas 46 a 89), [`ActionResult`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/core/models.py#L46) implementa contrato imutável, suporte seguro a `__getitem__`, `get()`, propriedades de compatibilidade e exportação para dicionário `to_dict()`.
+2. **Aberto/Fechado (OCP) com Command / Strategy**:
+   - Em [`actions/dispatcher.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/dispatcher.py) (Linhas 16 a 55), [`ActionDispatcher`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/dispatcher.py#L16) registra handlers via `registrar_handler(handler: IActionHandler)`.
+   - **Nenhuma linha de `ActionDispatcher` precisa ser alterada** para incluir novas ações no assistente.
+3. **Handlers Atômicos (SRP)**:
+   - [`actions/browser.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/browser.py) (Linhas 23 a 48): [`BrowserActionHandler`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/browser.py#L23) cuida unicamente de navegação web.
+   - [`actions/cmd.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/cmd.py) (Linhas 32 a 65): [`CmdActionHandler`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/cmd.py#L32) cuida unicamente de subprocessos.
+   - [`actions/app.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/app.py) (Linhas 32 a 52): [`AppLauncherHandler`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/actions/app.py#L32) cuida unicamente de executáveis do Windows.
+
+---
+
+### CASO 4: Inversão de Dependência na Linha de Comando (CLI)
+- **Arquivo Legado**: [`AssistenteVoz/main.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz/main.py)
+- **Princípio Violado**: **DIP** (Inversão de Dependência)
+- **Novo Arquivo Refatorado**: [`AssistenteVoz_SOLID/main.py`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/main.py)
+
+#### Linhas e Código no Arquivo Legado (`AssistenteVoz/main.py`)
+1. **Linhas 6 a 13**:
+   Importações diretas de funções procedurais de baixo nível.
+2. **Linhas 58 a 74** e **Linhas 88 a 98**:
+   O `main.py` duplicava manualmente todo o pipeline de execução:
+   `gravar_audio -> processar_audio -> print -> executar_acao_estruturada`.
+   Essa duplicação significava que qualquer ajuste no fluxo precisava ser replicado tanto na GUI quanto na CLI.
+
+#### Como Foi Arrumado (`AssistenteVoz_SOLID/main.py`)
+- **Linha 14**: Importa [`VoiceAssistantController`](file:///C:/Users/henri.mafra/Downloads/AssistenteVoz_SOLID/services/controller.py#L18).
+- **Linhas 31 a 40**: A CLI recebe o `controller` e apenas solicita a execução de alto nível, mantendo paridade arquitetural absoluta com a GUI.
+
+---
+
+## 2. Tabela Resumo das Linhas Afetadas
+
+| Arquivo Original | Linhas Originais com Problema | O que foi arrumado | Novos Componentes / Arquivos de Destino |
 | :--- | :--- | :--- | :--- |
-| `gemini_service.py` | 7 responsabilidades misturadas (áudio, rede, env, regex, log) | `services/audio_recorder.py`<br>`services/gemini_service.py`<br>`services/history_logger.py` | **S** (Responsabilidade Única)<br>**I** (Segregação de Interfaces)<br>**D** (Inversão de Dependência) |
-| `actions.py` | Monólito `if-elif`, parsing de texto e log em disco misturados | `actions/base.py`<br>`actions/browser.py`<br>`actions/cmd.py`<br>`actions/app.py`<br>`actions/dispatcher.py` | **S** (Ações atômicas)<br>**O** (Dispatcher extensível)<br>**L** (ActionResult padronizado) |
-| `app_gui.py` | *God Class* acoplada com threads, SO, IA e áudio | `ui/app_gui.py`<br>`services/controller.py` | **S** (UI só renderiza)<br>**D** (Injeção de Dependência via Controller) |
-| `main.py` | CLI procedural com dependências concretas diretas | `main.py` refatorado com injeção via `VoiceAssistantController` | **D** (Inversão de Dependência) |
-| Ausente | Ausência de validação de tipos e contratos | `core/models.py`<br>`core/interfaces.py` | **I** (Protocols específicos)<br>**L** (Substituição de Liskov) |
+| `app_gui.py` | **Linhas 9-10** | Importação direta de infraestrutura na UI | `ui/app_gui.py` (Linhas 15-17): Importa apenas `VoiceAssistantController` |
+| `app_gui.py` | **Linha 48** | Instanciação de microfone fixo na UI | `ui/app_gui.py` (Linhas 24-28): Injeção de dependência |
+| `app_gui.py` | **Linhas 548-562** | `processar_audio()` e `executar_acao_estruturada()` na UI | `ui/app_gui.py` (Linhas 545-555): `self.controller.finalizar_e_processar_voz()` |
+| `app_gui.py` | **Linhas 624-636** | `processar_texto()` e `executar_acao_estruturada()` na UI | `ui/app_gui.py` (Linhas 585-595): `self.controller.processar_comando_texto()` |
+| `gemini_service.py`| **Linha 13** | Dependência de `registrar_transcricao` | `services/gemini_service.py`: Depende apenas de `core/interfaces.py` |
+| `gemini_service.py`| **Linhas 88-143** | Classe `GravadorAudio` acumulada no serviço de IA | `services/audio_recorder.py` (Linhas 11-75): `SoundDeviceRecorder` |
+| `gemini_service.py`| **Linhas 200-204** | Efeito colateral de gravação em disco | `services/gemini_service.py` (Linhas 97-150): Inferência pura |
+| `actions.py` | **Linhas 25-41** | `ResultadoAcao` com falso mapeamento | `core/models.py` (Linhas 46-89): `ActionResult` tipado |
+| `actions.py` | **Linhas 75-93** | `registrar_transcricao` no módulo de SO | `services/history_logger.py` (Linhas 12-55): `MarkdownHistoryLogger` |
+| `actions.py` | **Linhas 95-155** | Encadeamento `if-elif-else` monolítico | `actions/dispatcher.py` (Linhas 16-55): Padrão Command / Strategy |
+| `actions.py` | **Linhas 129-133** | Parsing léxico de strings durante a execução | `actions/cmd.py` (Linhas 32-65): Execução isolada |
+| `main.py` | **Linhas 58-98** | Duplicação do pipeline procedural de orquestração | `main.py` (Linhas 31-50): Delegado ao `VoiceAssistantController` |
 
 ---
 
-## 4. Conclusão
+## 3. Conclusão da Especificidade
 
-A refatoração transformou um protótipo procedural em uma aplicação de **nível corporativo (Enterprise-Ready)**:
-1. **Total Retrocompatibilidade**: O código antigo e testes unitários continuam funcionando através de fachadas elegantes (`actions.py` e `gemini_service.py` na raiz).
-2. **Qualidade Garantida**: Todos os 18 testes automatizados (unitários + regressão + SOLID) passam em 0.92s.
-3. **Pronto para Evolução**: Novas ações ou novos provedores de IA (Grok, Whisper, Claude) podem ser plugados sem alterar o código existente.
+Todas as violações apontadas foram corrigidas cirurgicamente, comprovadas por **18 testes automatizados (100% de aprovação)** e versionadas de ponta a ponta no repositório GitHub [AssistenteVoz-SOLID](https://github.com/HenriMafra/AssistenteVoz-SOLID).
