@@ -1,6 +1,6 @@
 # Relatório Completo de Transformação SOLID: O Que Fazia, Como Fazia, O Que Faz Agora e Como Faz Agora
 
-Este documento detalha exaustivamente cada módulo do projeto **Assistente de Voz para Windows**, demonstrando a evolução entre a versão legada (`AssistenteVoz`) e a versão arquitetada em SOLID (`AssistenteVoz_SOLID`), fundamentando cada decisão nos 5 princípios do [FreeCodeCamp](https://www.freecodecamp.org/portuguese/news/os-principios-solid-da-programacao-orientada-a-objetos-explicados-em-bom-portugues/).
+Este documento detalha exaustivamente cada módulo do projeto **Assistente de Voz para Windows**, demonstrando a evolução entre a versão legada (`AssistenteVoz`) e a versão arquitetada em SOLID (`AssistenteVoz_SOLID`), fundamentando cada decisão nos 5 princípios.
 
 ---
 
